@@ -1,0 +1,311 @@
+---
+title: "Retail Analysis-Assignment"
+author: "Anurag Agrawal"
+date: "04/06/2021"
+output: html_document
+output: pdf_document
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+
+
+```{r}
+
+install.packages("dplyr")
+
+install.packages("ggplot2")
+
+library(dplyr)
+library(ggplot2)
+
+print(getwd())
+
+Customer <- read.csv("Customer.csv")
+
+prod_cat_info <- read.csv("prod_cat_info.csv")
+
+Transactions <- read.csv("Transactions.csv")
+
+print(Customer)
+
+
+```
+
+1. Merge the datasets Customers, Product Hierarchy and Transactions as
+  Customer_Final. Ensure to keep all customers who have done transactions with us 
+  and select the join type accordingly.
+    a. Use the base merge()
+    b. Dplyr merge functions
+    
+```{r}
+
+##  a.Use the base merge()
+
+
+Result=merge(x=Customer, y=Transactions, by.x = "customer_Id",by.y = "cust_id",)
+
+print(Result)
+
+Customer_Final=merge(x=prod_cat_info, y=Result, by.x="prod_sub_cat_code", by.y ="prod_subcat_code",)
+
+print(Customer_Final)
+
+
+
+##  b.Dplyr merge functions
+trans_cust_df2 <- left_join(Transactions,
+                            Customer,
+                            by = c("cust_id" = "customer_Id"))
+
+
+Customer_Final <- left_join(
+  Transactions,
+  prod_cat_info,
+  by = c("prod_cat_code" = "prod_cat_code",
+         "prod_subcat_code" = "prod_sub_cat_code")
+)
+
+cat('Dimensions of dataframe obtained through dplyr(): ', dim(Customer_Final))
+
+
+
+```
+
+
+2. Prepare a summary report for the merged data set.
+  a. Get the column names and their corresponding data types
+  b. Top/Bottom 10 observations
+  c. “Five-number summary” for continuous variables (min, Q1, median,Q3 and max)
+  d. Frequency tables for all the categorical variables
+
+```{r}
+## a. Get the column names and their corresponding data types
+
+column_names <- colnames(Customer_Final)
+
+print(column_names)
+
+for (name in column_names) {
+  print(name)
+  print(class(Customer_Final[,name]))
+}
+
+## b.Top/Bottom 10 observations
+
+
+head(Customer_Final,n=10)
+tail(Customer_Final,n=10)
+
+## c. “Five-number summary” for continuous variables (min, Q1, median,Q3 and max)
+
+for (name in column_names) {
+  if(class(Customer_Final[,name]) == "integer"){
+    print(name)
+    print(summary(Customer_Final[,name]))
+  }
+
+  }
+
+##
+Customer_Final$dtypes
+Customer_Final$loc[Customer_Final$dtypes=="object"]$summary
+table(Customer_Final$prod_subcat_code)
+table(Customer_Final$prod_cat_code)
+table(Customer_Final$Store_type)
+table(Customer_Final$Gender)
+table(Customer_Final$city_code)
+table(Customer_Final$prod_cat)
+table(Customer_Final$prod_subcat)
+```
+
+
+3. Generate histograms for all continuous variables and frequency bars for categorical
+    variables.
+
+
+```{r}
+
+vecc <- vector()
+for (name in column_names) {
+  if(class(Customer_Final[,name]) == "integer"){
+    vecc <- c(vecc,name)
+  }
+}
+print(vecc)
+
+Continues_var_dataset <- dplyr::select(Customer_Final,vecc)
+print(Continues_var_dataset)
+
+histoplot = ggplot2::ggplot(Continues_var_dataset, aes(x=Qty)) + 
+  geom_histogram() + 
+  xlab("qty") + 
+  ylab("qty") + ggtitle("XXX")
+
+
+plot(histoplot)
+
+```
+
+4. Calculate the following information using the merged dataset :
+  a. Time period of the available transaction data
+  b. Count of transactions where the total amount of transaction was negative
+
+```{r}
+##   a. Time period of the available transaction data
+
+#boxplot(Customer_Final$tran_date)
+
+
+##   b. Count of transactions where the total amount of transaction was negative
+
+Continues_var_dataset[Continues_var_dataset$Qty <= 0, ]
+
+```
+
+5. Analyze which product categories are more popular among females vs malecustomers.
+
+```{r}
+# prod_cat_code.y
+
+group_Product =group_by(Customer_Final,prod_cat_code.y)
+print(group_Product)
+
+max_product_table <- summarise(
+  group_Product,
+  Sum = sum(Qty)
+)
+print(max_product_table)
+
+arrange(max_product_table, desc(Sum))
+
+# 5th Product code is popular
+
+```
+
+
+
+6. Which City code has the maximum customers and what was thepercentage of customers
+    from that city?
+    
+```{r}
+
+
+group_city_code =group_by(Customer_Final,city_code)
+print(group_city_code)
+
+max_product_table <- summarise(
+  group_city_code,
+  Count = n_distinct(customer_Id)
+)
+print(max_product_table)
+
+arrange(max_product_table, desc(Count))
+
+
+
+```
+    
+
+7. Which store type sells the maximum products by value and by quantity?
+
+```{r}
+
+#   Rate  total_amt Store_type
+
+group_Store_type =group_by(Customer_Final,Store_type)
+print(group_Store_type)
+
+max_product_by_value <- summarise(
+  group_Store_type,
+  p_sum = sum(Rate),
+  total_sum = sum(total_amt)
+)
+print(max_product_by_value)
+
+arrange(max_product_by_value, desc(p_sum) ,desc(total_sum)  )
+
+
+```
+
+
+8. What was the total amount earned from the "Electronics" and "Clothing"categories from
+    Flagship Stores?
+    
+```{r}
+
+x_cat <- filter(Customer_Final,prod_cat %in% 
+              c("Electronics","Clothing")) 
+x <- filter(x_cat,Store_type == "Flagship store")
+sum(x$total_amt)
+
+
+```
+    
+
+9. What was the total amount earned from "Male" customers under the"Electronics" 
+    category?
+    
+```{r}
+Customer_Final
+
+s=filter(Customer_Final, Gender == 'M' & prod_cat=="Electronics")
+summarise(
+  s,
+  total=sum(total_amt)
+)
+```
+    
+
+10. How many customers have more than 10 unique transactions, afterremoving all 
+    transactions which have any negative amounts?
+    
+```{r}
+
+sd<- data.frame(filter(Customer_Final,total_amt > 0 ))
+trans_count <- group_by(sd,cust_id)
+y<- summarise(trans_count, total_transaction_id = n_distinct(transaction_id))
+y[y$total_transaction_id >10,]
+
+```
+    
+
+
+11. For all customers aged between 25 - 35, find out:
+      a. What was the total amount spent for “Electronics” and “Books”product
+          categories?
+      b. What was the total amount spent by these customers between 1stJan, 2014 to 1st 
+          Mar, 2014?
+
+```{r}
+sum<- data.frame(filter(Customer_Final, prod_cat =="Electronics" | prod_cat == "Books"))
+sum(sum$total_amt)
+```
+```{r}
+##b
+startDate =as.Date("01-01-2014")
+endDate =as.Date("01-03-2014")
+Customer_Final[Customer_Final$tran_date > startDate & Customer_Final$tran_date < endDate,]
+
+filter((Customer_Final$tran_date > startDate) & (Customer_Final$tran_date < endDate ))
+Final= mutate(Customer_Final, tran_date < startDate & tran_date >endDate,)
+print(Final)
+Final= Customer_Final[Customer_Final$`tran_date > startDate & tran_date < endDate`,]
+print(Final)
+```
+
+
+
+
+
+
+
+
+
+
+
